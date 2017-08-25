@@ -42,15 +42,17 @@ SELECT count(*) FROM
   (SELECT random(), k_no FROM user_buy_test_table LEFT JOIN users_ref_test_table
   ON user_buy_test_table.user_id = users_ref_test_table.id) subquery_1 WHERE k_no = 47;
 
--- Should not work, no equality between partition column and reference table
-SELECT * FROM
-  (SELECT random() FROM user_buy_test_table LEFT JOIN users_ref_test_table
-  ON user_buy_test_table.item_id = users_ref_test_table.id) subquery_1;
+-- Should work, although no equality between partition column and reference table
+SELECT subquery_1.item_id FROM
+  (SELECT user_buy_test_table.item_id, random() FROM user_buy_test_table LEFT JOIN users_ref_test_table
+  ON user_buy_test_table.item_id = users_ref_test_table.id) subquery_1
+ORDER BY 1;
 
--- Should not work, no equality between partition column and reference table
-SELECT * FROM
-  (SELECT random() FROM user_buy_test_table LEFT JOIN users_ref_test_table
-  ON user_buy_test_table.user_id > users_ref_test_table.id) subquery_1;
+-- Should work, although no equality between partition column and reference table
+SELECT subquery_1.user_id FROM
+  (SELECT user_buy_test_table.user_id, random() FROM user_buy_test_table LEFT JOIN users_ref_test_table
+  ON user_buy_test_table.user_id > users_ref_test_table.id) subquery_1
+ORDER BY 1;
 
 -- Shouldn't work, reference table at the outer side is not allowed
 SELECT * FROM
@@ -471,15 +473,15 @@ FROM
                           SELECT * FROM
                           (
                               SELECT 
-                                max("events"."time"),
+                                max("users"."time"),
                                 0 AS event,
-                                "events"."user_id"
+                                "users"."user_id"
                               FROM 
                                 events_reference_table as  "events", users_table as "users"
                               WHERE 
                                 events.user_id = users.user_id AND
                                 event_type IN (10, 11, 12, 13, 14, 15)
-                                GROUP BY   "events"."user_id"
+                                GROUP BY   "users"."user_id"
                           ) as events_subquery_5
                      ) events_subquery_2)
                UNION 

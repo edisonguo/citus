@@ -78,7 +78,7 @@ LIMIT 3;
 
 -- subqueries in WHERE with IN operator without equality
 SELECT 
-  user_id
+  users_table.user_id, count(*)
 FROM 
   users_table
 WHERE 
@@ -90,29 +90,29 @@ WHERE
            WHERE 
               users_table.user_id > events_reference_table.user_id
           )
-GROUP BY user_id
-ORDER BY user_id
+GROUP BY users_table.user_id
+ORDER BY 2 DESC, 1 DESC
 LIMIT 3;
 
 -- have reference table without any equality, should error out 
 SELECT 
-  user_id
+  user_id, count(*)
 FROM 
   users_table
 WHERE 
-  value_2 >  
+  value_2 >  ALL
           (SELECT 
-              max(value_2) 
+              min(value_2) 
            FROM 
               events_reference_table  
            WHERE 
-              event_type = 50
+              event_type > 50
            GROUP BY
               user_id
           )
 GROUP BY user_id
 HAVING count(*) > 66
-ORDER BY user_id
+ORDER BY 2 DESC, 1 DESC
 LIMIT 5; 
 
 -- users that appeared more than 118 times, should run since the reference table
