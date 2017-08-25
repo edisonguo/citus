@@ -197,3 +197,97 @@ SELECT user_id, value_2 FROM users_table WHERE
 		HAVING sum(submit_card_info) > 0
 )
 ORDER BY 1, 2;
+
+-- non-partition key equality with reference table
+ SELECT 
+  user_id, count(*) 
+FROM 
+  users_table 
+WHERE 
+  value_3 =ANY(SELECT value_2 FROM users_reference_table WHERE value_1 >= 10 AND value_1 <= 20) 
+ GROUP BY 1 ORDER BY 2 DESC, 1 DESC LIMIT 5;
+
+
+-- non-partition key comparison with reference table
+SELECT 
+  user_id, count(*)
+FROM 
+  events_table as e1
+WHERE
+  event_type IN
+            (SELECT 
+                event_type
+             FROM 
+              events_reference_table as e2
+             WHERE
+              value_2 = 15 AND
+              value_3 > 25 AND
+              e1.value_2 > e2.value_2
+            ) 
+GROUP BY 1
+ORDER BY 2 DESC, 1 DESC
+LIMIT 5;
+
+-- subqueries in both WHERE and FROM clauses
+-- should work since reference table is on the 
+-- inner part of the join 
+SELECT user_id, value_2 FROM users_table WHERE
+  value_1 > 101 AND value_1 < 110
+  AND value_2 >= 5
+  AND user_id IN
+  (
+    SELECT
+      e1.user_id
+    FROM (
+      -- Get the first time each user viewed the homepage.
+      SELECT
+        user_id,
+        1 AS view_homepage,
+        min(time) AS view_homepage_time
+      FROM events_table
+         WHERE
+         event_type IN (10, 20, 30, 40, 50, 60, 70, 80, 90)
+      GROUP BY user_id
+    ) e1 LEFT JOIN LATERAL (
+      SELECT
+        user_id,
+        1 AS use_demo,
+        time AS use_demo_time
+      FROM events_table
+      WHERE
+        user_id = e1.user_id AND
+           event_type IN (11, 21, 31, 41, 51, 61, 71, 81, 91)
+      ORDER BY time
+    ) e2 ON true LEFT JOIN LATERAL (
+      SELECT
+        user_id,
+        1 AS enter_credit_card,
+        time AS enter_credit_card_time
+      FROM  events_table
+      WHERE
+        user_id = e2.user_id AND
+        event_type IN (12, 22, 32, 42, 52, 62, 72, 82, 92)
+      ORDER BY time
+    ) e3 ON true LEFT JOIN LATERAL (
+      SELECT
+        1 AS submit_card_info,
+        user_id,
+        time AS enter_credit_card_time
+      FROM  events_table
+      WHERE
+        user_id = e3.user_id AND
+        event_type IN (13, 23, 33, 43, 53, 63, 73, 83, 93)
+      ORDER BY time
+    ) e4 ON true LEFT JOIN LATERAL (
+      SELECT
+        1 AS see_bought_screen
+      FROM  events_reference_table
+      WHERE
+        user_id = e4.user_id AND
+        event_type IN (14, 24, 34, 44, 54, 64, 74, 84, 94)
+      ORDER BY time
+    ) e5 ON true
+    group by e1.user_id
+    HAVING sum(submit_card_info) > 0
+)
+ORDER BY 1, 2;
