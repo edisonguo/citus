@@ -291,3 +291,51 @@ SELECT user_id, value_2 FROM users_table WHERE
     HAVING sum(submit_card_info) > 0
 )
 ORDER BY 1, 2;
+
+-- reference tables are not allowed if there is sublink
+SELECT
+  count(*) 
+FROM 
+  users_reference_table 
+WHERE user_id 
+  NOT IN
+(SELECT users_table.value_2 FROM users_table JOIN users_reference_table as u2 ON users_table.value_2 = u2.value_2);
+
+
+-- reference tables are not allowed if there is sublink
+SELECT count(*)
+FROM
+  (SELECT 
+      user_id, random() FROM users_reference_table) AS vals
+    WHERE vals.user_id NOT IN
+    (SELECT users_table.value_2
+     FROM users_table
+     JOIN users_reference_table AS u2 ON users_table.value_2 = u2.value_2);
+
+-- reference tables are not allowed if there is sublink
+SELECT user_id,
+       count(*)
+FROM users_reference_table
+WHERE value_2 > ALL
+    (SELECT min(value_2)
+     FROM events_table
+     WHERE event_type > 50 AND users_reference_table.user_id = events_table.user_id
+     GROUP BY user_id)
+GROUP BY user_id
+HAVING count(*) > 66
+ORDER BY 2 DESC,
+         1 DESC
+LIMIT 5;
+
+-- reference tables are not allowed if there is sublink
+-- this time in the subquery
+SELECT *
+FROM users_table
+WHERE user_id IN
+    (SELECT users_table.user_id
+     FROM users_table,
+          users_reference_table
+     WHERE users_reference_table.user_id NOT IN
+         (SELECT value_2
+          FROM users_reference_table AS u2));
+

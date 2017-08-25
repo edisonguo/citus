@@ -69,6 +69,8 @@ static DeferredErrorMessage * DeferErrorIfUnsupportedSubqueryPushdown(Query *
 																	  PlannerRestrictionContext
 																	  *
 																	  plannerRestrictionContext);
+static DeferredErrorMessage * DeferErrorIfUnsupportedSublinkAndReferenceTable(
+	Query *queryTree);
 static DeferredErrorMessage * DeferErrorIfUnsupportedFilters(Query *subquery);
 static bool EqualOpExpressionLists(List *firstOpExpressionList,
 								   List *secondOpExpressionList);
@@ -550,6 +552,16 @@ DeferErrorIfUnsupportedSubqueryPushdown(Query *originalQuery,
 							 "outer join",
 							 NULL);
 	}
+	else if (originalQuery->hasSubLinks)
+	{
+		DeferredErrorMessage *errorMessage =
+			DeferErrorIfUnsupportedSublinkAndReferenceTable(originalQuery);
+
+		if (errorMessage)
+		{
+			return errorMessage;
+		}
+	}
 
 	/*
 	 * We first extract all the queries that appear in the original query. Later,
@@ -576,6 +588,37 @@ DeferErrorIfUnsupportedSubqueryPushdown(Query *originalQuery,
 		{
 			return error;
 		}
+	}
+
+	return NULL;
+}
+
+
+/*
+ * DeferErrorIfUnsupportedSublinAndReferenceTable returns a deferred error if the
+ * given query is not suitable for subquery pushdown.
+ *
+ * While planning sublinks, we rely on Postgres in the sense that it converts some of
+ * sublinks into joins.
+ *
+ * In some cases, sublinks are pulled up and converted into outer joins. Those cases
+ * are already handled with HasUnsupportedReferenceTableJoin().
+ *
+ * If the sublinks are not pulled up, we should still error out in if any reference table
+ * appears in the FROM clause of a subquery.
+ *
+ * Otherwise, the result would include duplicate rows.
+ */
+static DeferredErrorMessage *
+DeferErrorIfUnsupportedSublinkAndReferenceTable(Query *queryTree)
+{
+	if (HasReferenceTable((Node *) queryTree->rtable))
+	{
+		return DeferredError(ERRCODE_FEATURE_NOT_SUPPORTED,
+							 "cannot pushdown the subquery",
+							 "Reference tables are not allowed in the FROM "
+							 "clause when sublinks exists",
+							 NULL);
 	}
 
 	return NULL;
@@ -850,6 +893,18 @@ DeferErrorIfCannotPushdownSubquery(Query *subqueryTree, bool outerMostQueryHasLi
 			preconditionsSatisfied = false;
 			errorDetail = "Distinct on columns without partition column is "
 						  "currently unsupported";
+		}
+	}
+
+	if (subqueryTree->hasSubLinks)
+	{
+		DeferredErrorMessage *errorMessage =
+			DeferErrorIfUnsupportedSublinkAndReferenceTable(subqueryTree);
+
+		if (errorMessage)
+		{
+			preconditionsSatisfied = false;
+			errorDetail = (char *) errorMessage->detail;
 		}
 	}
 
@@ -2927,10 +2982,19 @@ ExtractRangeTableRelationWalkerWithRTEExpand(Node *node, List **rangeTableRelati
 												rangeTableRelationList, 0);
 		}
 	}
+	else if (IsA(node, Query))
+	{
+		walkIsComplete = query_tree_walker((Query *) node,
+										   ExtractRangeTableRelationWalkerWithRTEExpand,
+										   rangeTableRelationList, QTW_EXAMINE_RTES);
+	}
 	else
 	{
-		walkIsComplete = ExtractRangeTableRelationWalker(node, rangeTableRelationList);
+		walkIsComplete = expression_tree_walker(node,
+												ExtractRangeTableRelationWalkerWithRTEExpand,
+												rangeTableRelationList);
 	}
+
 
 	return walkIsComplete;
 }
