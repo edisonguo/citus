@@ -91,7 +91,7 @@ WHERE
       )
 LIMIT 3;
 ERROR:  cannot pushdown the subquery
-DETAIL:  There exist a reference table in the outer part of the outer join
+DETAIL:  Reference tables are not allowed in the FROM clause when the query has subqueries in the WHERE clause
 -- subqueries in WHERE with IN operator without equality
 SELECT 
   users_table.user_id, count(*)
@@ -364,7 +364,7 @@ WHERE user_id
   NOT IN
 (SELECT users_table.value_2 FROM users_table JOIN users_reference_table as u2 ON users_table.value_2 = u2.value_2);
 ERROR:  cannot pushdown the subquery
-DETAIL:  Reference tables are not allowed in the FROM clause when sublinks exists
+DETAIL:  Reference tables are not allowed in the FROM clause when the query has subqueries in the WHERE clause
 -- reference tables are not allowed if there is sublink
 SELECT count(*)
 FROM
@@ -375,7 +375,7 @@ FROM
      FROM users_table
      JOIN users_reference_table AS u2 ON users_table.value_2 = u2.value_2);
 ERROR:  cannot pushdown the subquery
-DETAIL:  Reference tables are not allowed in the FROM clause when sublinks exists
+DETAIL:  Reference tables are not allowed in the FROM clause when the query has subqueries in the WHERE clause
 -- reference tables are not allowed if there is sublink
 SELECT user_id,
        count(*)
@@ -391,7 +391,7 @@ ORDER BY 2 DESC,
          1 DESC
 LIMIT 5;
 ERROR:  cannot pushdown the subquery
-DETAIL:  Reference tables are not allowed in the FROM clause when sublinks exists
+DETAIL:  Reference tables are not allowed in the FROM clause when the query has subqueries in the WHERE clause
 -- reference tables are not allowed if there is sublink
 -- this time in the subquery
 SELECT *
@@ -404,4 +404,4 @@ WHERE user_id IN
          (SELECT value_2
           FROM users_reference_table AS u2));
 ERROR:  cannot push down this subquery
-DETAIL:  Reference tables are not allowed in the FROM clause when sublinks exists
+DETAIL:  Reference tables are not allowed in the FROM clause when the query has subqueries in the WHERE clause

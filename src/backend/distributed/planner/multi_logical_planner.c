@@ -544,15 +544,9 @@ DeferErrorIfUnsupportedSubqueryPushdown(Query *originalQuery,
 							 "one another relation using distribution keys and "
 							 "equality operator.", NULL);
 	}
-	else if (HasUnsupportedReferenceTableJoin(plannerRestrictionContext))
-	{
-		return DeferredError(ERRCODE_FEATURE_NOT_SUPPORTED,
-							 "cannot pushdown the subquery",
-							 "There exist a reference table in the outer part of the "
-							 "outer join",
-							 NULL);
-	}
-	else if (originalQuery->hasSubLinks)
+
+	/* we shouldn't allow reference tables in the FROM clause when the query has sublinks */
+	if (originalQuery->hasSubLinks)
 	{
 		DeferredErrorMessage *errorMessage =
 			DeferErrorIfUnsupportedSublinkAndReferenceTable(originalQuery);
@@ -562,6 +556,17 @@ DeferErrorIfUnsupportedSubqueryPushdown(Query *originalQuery,
 			return errorMessage;
 		}
 	}
+
+	/* we shouldn't allow reference tables in the outer part of outer joins */
+	if (HasUnsupportedReferenceTableJoin(plannerRestrictionContext))
+	{
+		return DeferredError(ERRCODE_FEATURE_NOT_SUPPORTED,
+							 "cannot pushdown the subquery",
+							 "There exist a reference table in the outer part of the "
+							 "outer join",
+							 NULL);
+	}
+
 
 	/*
 	 * We first extract all the queries that appear in the original query. Later,
@@ -595,7 +600,7 @@ DeferErrorIfUnsupportedSubqueryPushdown(Query *originalQuery,
 
 
 /*
- * DeferErrorIfUnsupportedSublinAndReferenceTable returns a deferred error if the
+ * DeferErrorIfUnsupportedSublinkAndReferenceTable returns a deferred error if the
  * given query is not suitable for subquery pushdown.
  *
  * While planning sublinks, we rely on Postgres in the sense that it converts some of
@@ -612,12 +617,15 @@ DeferErrorIfUnsupportedSubqueryPushdown(Query *originalQuery,
 static DeferredErrorMessage *
 DeferErrorIfUnsupportedSublinkAndReferenceTable(Query *queryTree)
 {
+	AssertArg(queryTree->hasSubLinks);
+
 	if (HasReferenceTable((Node *) queryTree->rtable))
 	{
 		return DeferredError(ERRCODE_FEATURE_NOT_SUPPORTED,
 							 "cannot pushdown the subquery",
 							 "Reference tables are not allowed in the FROM "
-							 "clause when sublinks exists",
+							 "clause when the query has subqueries in the "
+							 "WHERE clause",
 							 NULL);
 	}
 
@@ -2994,7 +3002,6 @@ ExtractRangeTableRelationWalkerWithRTEExpand(Node *node, List **rangeTableRelati
 												ExtractRangeTableRelationWalkerWithRTEExpand,
 												rangeTableRelationList);
 	}
-
 
 	return walkIsComplete;
 }
