@@ -74,9 +74,6 @@ static bool CheckInsertSelectQuery(Query *query);
  *
  * Note that the input query should be the original parsetree of
  * the query (i.e., not passed trough the standard planner).
- *
- * This function is inspired from getInsertSelectQuery() on
- * rewrite/rewriteManip.c.
  */
 bool
 InsertSelectIntoDistributedTable(Query *query)
@@ -96,6 +93,11 @@ InsertSelectIntoDistributedTable(Query *query)
 }
 
 
+/*
+ * InsertSelectIntoLocalTable checks whether INSERT INTO ... SELECT inserts
+ * into local table. Note that query must be a sample of INSERT INTO ... SELECT
+ * type of query.
+ */
 bool
 InsertSelectIntoLocalTable(Query *query)
 {
@@ -115,9 +117,11 @@ InsertSelectIntoLocalTable(Query *query)
 
 
 /*
- * InsertSelectIntoLocalTable checks whether INSERT INTO ... SELECT
- * inserts into local table. Note that query must be a sample of INSERT INTO ...
- * SELECT type of query.
+ * CheckInsertSelectQuery returns true when the input query is an INSERT INTO
+ * ... SELECT kind of query.
+ *
+ * This function is inspired from getInsertSelectQuery() on
+ * rewrite/rewriteManip.c.
  */
 static bool
 CheckInsertSelectQuery(Query *query)

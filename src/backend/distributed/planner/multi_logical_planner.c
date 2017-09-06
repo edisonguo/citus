@@ -2865,8 +2865,8 @@ NeedsDistributedPlanning(Query *queryTree)
 	{
 		if (InsertSelectIntoLocalTable(queryTree))
 		{
-			ereport(ERROR, (errmsg("cannot plan query, Citus only supports INSERT INTO "
-								   "dist_table SELECT ... FROM local_table")));
+			ereport(ERROR, (errmsg("cannot INSERT rows from a distributed query into a "
+								   "local table")));
 		}
 		ereport(ERROR, (errmsg("cannot plan queries which include both local and "
 							   "distributed relations")));
